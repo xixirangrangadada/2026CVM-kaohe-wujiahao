@@ -1,0 +1,25 @@
+# started on Sun Jun 14 17:58:08 2026
+
+
+ Performance counter stats for 'stress-ng --cpu 1 --cpu-method queens -t 30s':
+
+    77,583,011,181      cycles                                                      
+   118,106,523,266      instructions              #    1.52  insn per cycle         
+    33,260,646,371      cache-references                                            
+           471,499      cache-misses              #    0.001 % of all cache refs    
+           471,499      L1-dcache-load-misses                                       
+         2,152,063      L1-icache-load-misses                                       
+            51,477      LLC-load-misses                                             
+     2,331,045,633      branch-misses                                               
+    19,119,698,208      branch-instructions                                         
+           440,149      dTLB-load-misses                                            
+           243,395      iTLB-load-misses                                            
+                38      context-switches                                            
+                 0      cpu-migrations                                              
+
+      30.008124380 seconds time elapsed
+
+      29.974309000 seconds user
+       0.004562000 seconds sys
+
+

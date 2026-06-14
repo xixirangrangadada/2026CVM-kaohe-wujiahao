@@ -1,0 +1,25 @@
+# started on Sun Jun 14 17:56:37 2026
+
+
+ Performance counter stats for 'stress-ng --cpu 1 --cpu-method matrixprod -t 30s':
+
+    77,769,306,265      cycles                                                      
+   189,488,479,212      instructions              #    2.44  insn per cycle         
+     9,719,153,113      cache-references                                            
+       492,670,952      cache-misses              #    5.069 % of all cache refs    
+       492,670,952      L1-dcache-load-misses                                       
+         2,563,630      L1-icache-load-misses                                       
+           510,961      LLC-load-misses                                             
+       313,934,742      branch-misses                                               
+    34,710,859,279      branch-instructions                                         
+           884,740      dTLB-load-misses                                            
+           319,244      iTLB-load-misses                                            
+                39      context-switches                                            
+                 0      cpu-migrations                                              
+
+      30.101591846 seconds time elapsed
+
+      30.062753000 seconds user
+       0.004224000 seconds sys
+
+

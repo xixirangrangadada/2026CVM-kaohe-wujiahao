@@ -1,0 +1,25 @@
+# started on Sun Jun 14 17:57:38 2026
+
+
+ Performance counter stats for 'stress-ng --vm 1 --vm-bytes 512M --vm-method rand-set -t 30s':
+
+    78,159,351,080      cycles                                                      
+   204,506,619,071      instructions              #    2.62  insn per cycle         
+    64,880,136,964      cache-references                                            
+       532,269,854      cache-misses              #    0.820 % of all cache refs    
+       532,269,854      L1-dcache-load-misses                                       
+         5,729,568      L1-icache-load-misses                                       
+       235,329,456      LLC-load-misses                                             
+         8,908,258      branch-misses                                               
+    28,055,975,925      branch-instructions                                         
+       107,440,502      dTLB-load-misses                                            
+           860,330      iTLB-load-misses                                            
+                49      context-switches                                            
+                 0      cpu-migrations                                              
+
+      30.303359908 seconds time elapsed
+
+      21.284720000 seconds user
+       8.960288000 seconds sys
+
+
