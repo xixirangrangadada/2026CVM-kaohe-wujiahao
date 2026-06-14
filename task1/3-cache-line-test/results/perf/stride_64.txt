@@ -1,0 +1,15 @@
+# started on Sun Jun 14 19:04:41 2026
+
+
+ Performance counter stats for './cache_line_test 64':
+
+        52,825,136      L1-dcache-load-misses                                       
+         1,859,648      LLC-load-misses                                             
+        58,742,081      cache-references                                            
+
+       2.381684655 seconds time elapsed
+
+       2.374588000 seconds user
+       0.003983000 seconds sys
+
+
