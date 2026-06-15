@@ -219,6 +219,27 @@ Performance Events: unsupported p6 CPU model 151 no PMU driver, software events 
 
 `perf list hw` 为空 → cycles/instructions 全 `<not supported>`，只剩 software events。
 
+### A.1.1 复测验证（2026-06-15，内核已升级）
+
+阶段0 初次排查时 WSL2 内核为 4.x。后续 WSL2 内核升级到 **6.6.87.2-microsoft-standard-WSL2**（Linux 6.6 本身带 Alder Lake PMU 驱动），重新复测以收紧根因：
+
+```bash
+# 用已安装的 perf 5.15（绕过默认 perf 的内核版本检查）
+/usr/lib/linux-tools-5.15.0-181/perf stat -e cycles,instructions -- sleep 2
+```
+```
+ Performance counter stats for 'sleep 2':
+   <not supported>      cycles          ← 依然采不到
+   <not supported>      instructions   ← 依然采不到
+       2.003012162 seconds time elapsed
+```
+
+**结论收紧**：根因链里的第 3 条（"内核无 PMU 驱动"）已被新内核解决，但 PMU 仍不可用 → **真正的拦路虎是第 2 条（Hyper-V 不透传 PMU MSR）**。即使 guest 内核带了 PMU 驱动，hypervisor 不透传 MSR → 写入被吞 → 计数器不工作。
+
+**方法论印证**：这次复测验证了"分层栈思维"的价值——同一现象（`<not supported>`）在不同时间点可能有不同根因组合，只有逐层验证才能精确定位断裂层。旧结论（三重原因）经新数据收紧为单一根因（Hyper-V 透传），结论更可靠。
+
+→ WSL2 路线彻底放弃，**确认 ARM 云（鲲鹏 920 KVM，透传 PMU）为唯一可用环境**。
+
 ### A.2 推论
 要真 PMU 只能上**裸金属/原生 Linux**，或透传 PMU 的虚拟化。普通云 VM 多半残缺，要选**透传 PMU 的**并自检（`systemd-detect-virt` + `perf list` 有无 PMU 事件 + 4 关键事件实测）。本项目的鲲鹏 920 KVM 正好透传 → 合格。
 
