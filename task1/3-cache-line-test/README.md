@@ -19,4 +19,36 @@ C 语言 **pointer chasing** 程序：构造链表节点、节点间距 = stride
 
 ## 复现
 
-<TODO：编译/运行/perf 采集命令，阶段3 填>
+### 前置条件
+- ARM Linux（鲲鹏 920 / KVM 透传 PMU），`perf_event_paranoid = -1`
+- gcc（编译 C 源码）
+
+### 编译
+```bash
+gcc -O2 -o cache_line_test src/cache_line_test.c
+```
+
+### 运行（扫描所有 stride，输出延迟曲线）
+```bash
+taskset -c 0 ./cache_line_test
+# 产出：stride vs latency_ns 曲线（stdout，重定向到 results/latency.txt）
+```
+
+### 单 stride + perf stat（以 stride=64 为例）
+```bash
+taskset -c 0 perf stat \
+  -e L1-dcache-load-misses,\
+armv8_pmuv3_0/event=0x037,name=LLC-load-misses/,\
+cache-references \
+  -o results/perf/stride_64.txt \
+  -- ./cache_line_test 64
+```
+
+### 火焰图（stride=8 vs stride=64）
+```bash
+taskset -c 0 perf record -F 99 -g -- ./cache_line_test 8
+perf script | ./FlameGraph/stackcollapse-perf.pl | ./FlameGraph/flamegraph.pl > flamegraphs/stride8_flame.svg
+
+taskset -c 0 perf record -F 99 -g -- ./cache_line_test 64
+perf script | ./FlameGraph/stackcollapse-perf.pl | ./FlameGraph/flamegraph.pl > flamegraphs/stride64_flame.svg
+```
