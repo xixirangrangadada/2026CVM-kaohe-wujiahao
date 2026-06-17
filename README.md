@@ -15,7 +15,7 @@
 | 题1① | 多场景 perf stat 微架构指标采集 | ✅ 已完成 |
 | 题1② | 火焰图生成与热点分析 | ✅ 已完成 |
 | 题1③ | AI 辅助 Cache Line 微基准 | ✅ 已完成 |
-| 题2 | 容器化持续 CPU Profiling（选做） | ⬜ 暂缓 |
+| 题2 | 容器化持续 CPU Profiling（选做） | ✅ 已完成 |
 
 ## 测试环境
 
@@ -41,8 +41,14 @@
 │   ├── 1-perf-stat/         # 题1① 五场景 perf stat
 │   ├── 2-flamegraph/        # 题1② 火焰图
 │   └── 3-cache-line-test/   # 题1③ Cache Line 微基准
-└── task2/                   # 题2 容器化 Profiling（选做）
+└── task2/                   # 题2 容器化持续 CPU Profiling（选做，已完成）
+    ├── README.md            # 题2 说明（架构/启动/示例/设计权衡）
+    ├── src/                 # Dockerfile + profiler/（6 组件）+ supervisord.conf
+    ├── test/                # 环境验证 + 3 场景测试 + 火焰图 SVG
+    └── ai-chat-log/         # AI 协作对话导出
 ```
+
+> 题2 Docker 镜像 `profiler.tar.gz`（163MB，> GitHub 100MB 限制）放在 **GitHub Release** 附件，下载后 `docker load -i profiler.tar.gz` 即可。详见 `task2/README.md`。
 
 ## 工作流
 
