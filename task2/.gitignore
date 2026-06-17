@@ -1,0 +1,13 @@
+# Python 缓存（不入库）
+__pycache__/
+*.pyc
+*.pyo
+
+# Docker 镜像导出（>100MB，放 GitHub Release，不入库）
+profiler.tar
+profiler.tar.gz
+
+# 本地运行产生的采样/日志数据（不入库）
+/data/
+*.data
+*.log
