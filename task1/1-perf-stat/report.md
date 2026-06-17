@@ -130,4 +130,3 @@
 
 - `results/int64.txt` / `matrixprod.txt` / `read64.txt` / `rand-set.txt` / `queens.txt`（perf stat 完整输出）
 - `results/summary.md`（衍生指标对比表 + 关键观察）
-- `results/数据讲解.md`（逐 .txt 数字解读 + 衍生指标计算过程）

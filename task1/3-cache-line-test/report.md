@@ -189,6 +189,6 @@
 - `results/latency.txt`（延迟曲线原始数据）
 - `results/perf/stride_*.txt`（6 个 stride 的 perf stat 输出）
 - `results/summary.md`（曲线 + miss rate + 诚实说明）
-- `results/数据讲解.md`（6 stride 数字对比 + 拐点印证）
+- `results/latency_curve.png`（步长 vs 延迟曲线图）
 - `flamegraphs/stride8_flame.svg` / `stride64_flame.svg`（火焰图）
 - `ai-chat-log/题1③-AI使用说明.md`（AI 使用说明 + 协作记录）

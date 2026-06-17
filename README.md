@@ -45,3 +45,30 @@
 ## 工作流
 
 代码与文档在**本地仓库**维护（学习与版本可控），通过 `ssh` 在云端 ARM 服务器执行 perf 采集与编译，产物（perf 输出、SVG 火焰图）回传本地入库。
+
+## 复现指南
+
+> 环境：ARM Linux（鲲鹏 920 / TaiShan v110，KVM 透传 PMU），`perf_event_paranoid = -1`，perf 4.19.90，stress-ng 0.21.03。各子目录 README 有详细步骤，以下为顺序总览。
+
+```bash
+# 0. 前置依赖（云端 ARM 服务器）
+git clone --depth 1 https://github.com/ColinIanKing/stress-ng.git && make -j4   # stress-ng 0.21.03
+git clone https://github.com/brendangregg/FlameGraph.git                        # 火焰图工具链
+
+# 1. 题1① 五场景 perf stat 采集（→ results/*.txt）
+cd task1/1-perf-stat && bash run_perf_stat.sh
+
+# 2. 题1② 火焰图（→ flamegraphs/*.svg，见该目录 README）
+cd ../2-flamegraph
+taskset -c 0 perf record -F 99 -g -- stress-ng --cpu 1 --cpu-method matrixprod -t 30s
+perf script | ./FlameGraph/stackcollapse-perf.pl | ./FlameGraph/flamegraph.pl > flamegraphs/matrixprod_flame.svg
+
+# 3. 题1③ Cache Line 微基准（→ results/ + flamegraphs/，见该目录 README）
+cd ../3-cache-line-test
+gcc -O2 -o cache_line_test src/cache_line_test.c
+taskset -c 0 ./cache_line_test > results/latency.txt        # 延迟曲线
+taskset -c 0 perf stat -e L1-dcache-load-misses,armv8_pmuv3_0/event=0x037,name=LLC-load-misses/,cache-references \
+  -o results/perf/stride_64.txt -- ./cache_line_test 64     # 单 stride perf（按 README 循环 6 个 stride）
+```
+
+> 注：perf 4.19 在 ARM 上不认 `pmu/符号名/` 写法，LLC/branch 事件用 raw code（`event=0x037` / `event=0x021`）替代，详见各 README 说明。
