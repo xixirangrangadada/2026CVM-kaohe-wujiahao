@@ -21,6 +21,7 @@ from pathlib import Path
 
 from . import naming
 from .config import Config
+from .log import setup_logging
 
 log = logging.getLogger("profiler.janitor")
 
@@ -86,10 +87,7 @@ class Janitor:
 
 def main() -> int:
     import os
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    )
+    setup_logging()
     interval = int(os.environ.get("JANITOR_INTERVAL", str(DEFAULT_INTERVAL)))
     return Janitor(interval=interval).run()
 

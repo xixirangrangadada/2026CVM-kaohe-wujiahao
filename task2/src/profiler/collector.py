@@ -27,6 +27,7 @@ from pathlib import Path
 
 from . import naming
 from .config import Config
+from .log import setup_logging
 
 log = logging.getLogger("profiler.collector")
 
@@ -79,11 +80,14 @@ class Collector:
 
         try:
             self._proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL,
-                                          stderr=subprocess.PIPE)
+                                          stderr=subprocess.DEVNULL)  # DEVNULL：避免 PIPE 不读致 perf 写满缓冲死锁
             self._proc.wait()
+            rc = self._proc.returncode
         finally:
             self._proc = None
 
+        if rc != 0:
+            log.warning("perf record 退出码 %d（窗口 %s），数据可能不完整", rc, naming.fmt_ts(start))
         end = datetime.now()
         self._archive(tmp, start, end)
         return end
@@ -121,10 +125,7 @@ class Collector:
 
 
 def main() -> int:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    )
+    setup_logging()
     return Collector().run()
 
 

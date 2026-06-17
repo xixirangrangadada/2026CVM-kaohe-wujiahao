@@ -17,6 +17,7 @@ from pathlib import Path
 
 from . import naming
 from .config import Config
+from .log import setup_logging
 
 log = logging.getLogger("profiler.query")
 
@@ -74,8 +75,7 @@ def locate_files(start: datetime, end: datetime,
 
 def main(argv: list[str] | None = None) -> int:
     """CLI：python -m profiler.query <start> <end>"""
-    logging.basicConfig(level=logging.INFO,
-                        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    setup_logging()
     argv = argv if argv is not None else sys.argv[1:]
     if len(argv) != 2:
         print(f"用法: python -m profiler.query <start> <end>\n"

@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 
 from . import naming
+from .log import setup_logging
 
 log = logging.getLogger("profiler.flamegraph")
 
@@ -106,8 +107,7 @@ def main(argv: list[str] | None = None) -> int:
 
     按时间段回查（复用 query）再生成火焰图。
     """
-    logging.basicConfig(level=logging.INFO,
-                        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    setup_logging()
     argv = argv if argv is not None else sys.argv[1:]
 
     # 解析参数：<start> <end> [--out PATH]
