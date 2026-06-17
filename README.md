@@ -26,6 +26,8 @@
 | 虚拟化 | KVM guest |
 | OS | openEuler，内核 4.19.208 |
 | perf | 4.19.90（PMU 硬件事件用 raw event code 引用）|
+| stress-ng | 0.21.03（源码编译：openEuler 仓库无）|
+| 编译器 | gcc（cache line 微基准用 `-O2`）|
 
 ## 目录结构
 

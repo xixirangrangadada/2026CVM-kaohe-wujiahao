@@ -99,6 +99,8 @@
 
 ### 5.1 数据
 
+> **关于步长覆盖**：程序扫描 stride = 1/2/4/8/16/32/64/128/256 共 9 个测延迟曲线（见 latency.txt）；perf stat 采集 stride = 8/16/32/64/128/256 共 6 个。**stride < 8（即 1/2/4）退化为节点大小 8B**（节点 = 1 个指针 8B，stride 不足会让节点物理重叠），其访存行为与 stride=8 完全一致，故 perf 不重复采集——这一点在源码 `cache_line_test.c` 的 `stride < sizeof(void*)` 判断中体现。
+
 | stride | L1 miss% | LLC miss% |
 |---|---|---|
 | 8 | 88% | 4.8% |
