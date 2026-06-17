@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>持续 CPU Profiler</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+         background: #f5f6f8; color: #222; padding: 20px; }
+  h1 { font-size: 20px; margin-bottom: 16px; }
+  .grid { display: grid; grid-template-columns: 360px 1fr; gap: 16px; }
+  .panel { background: #fff; border: 1px solid #e2e4e8; border-radius: 6px;
+           padding: 14px; }
+  .panel h2 { font-size: 14px; color: #555; margin-bottom: 10px;
+              border-bottom: 1px solid #eee; padding-bottom: 6px; }
+  .status { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; }
+  .status .k { color: #888; }
+  .status .v { font-weight: 600; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+  .dot.on { background: #2ecc71; }
+  .dot.off { background: #ccc; }
+  .timeline { max-height: 320px; overflow-y: auto; }
+  .file { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; cursor: pointer;
+          font-size: 12px; font-family: monospace; }
+  .file:hover { background: #f0f7ff; }
+  .file.sel { background: #d8eaff; }
+  .file .meta { color: #888; font-size: 11px; }
+  .btn { background: #2d7dff; color: #fff; border: none; padding: 6px 14px;
+         border-radius: 4px; cursor: pointer; font-size: 13px; }
+  .btn:hover { background: #1a6aef; }
+  .btn:disabled { background: #aaa; cursor: not-allowed; }
+  .bar { margin: 8px 0; }
+  .bar input { padding: 4px; font-size: 12px; width: 130px; }
+  .flame { width: 100%; height: 600px; border: 1px solid #e2e4e8; border-radius: 4px; }
+  .msg { color: #888; font-size: 12px; margin: 8px 0; }
+  .err { color: #d33; }
+</style>
+</head>
+<body>
+<h1>🖥️ 持续 CPU Profiler</h1>
+<div class="grid">
+  <!-- 左：状态 + 时间线 -->
+  <div>
+    <div class="panel" style="margin-bottom:16px;">
+      <h2>系统概览</h2>
+      <div class="status" id="status">加载中…</div>
+    </div>
+    <div class="panel">
+      <h2>采样时间线（点击选时段）</h2>
+      <div class="bar">
+        <button class="btn" onclick="genFlame()">🔥 生成选中时段火焰图</button>
+        <span class="msg" id="pick"></span>
+      </div>
+      <div class="timeline" id="timeline">加载中…</div>
+    </div>
+  </div>
+  <!-- 右：火焰图 -->
+  <div class="panel">
+    <h2>火焰图（SVG 可交互缩放/搜索）</h2>
+    <div class="msg" id="flameMsg">选中时间段后点"生成火焰图"</div>
+    <iframe class="flame" id="flame" style="display:none;"></iframe>
+  </div>
+</div>
+
+<script>
+let files = [];
+let selStart = null, selEnd = null;
+
+async function loadStatus() {
+  const r = await fetch('/api/status');
+  const s = await r.json();
+  const dot = s.collecting ? '<span class="dot on"></span>采集中' : '<span class="dot off"></span>已停止';
+  document.getElementById('status').innerHTML = `
+    <div><span class="k">状态</span><br><span class="v">${dot}</span></div>
+    <div><span class="k">采样文件</span><br><span class="v">${s.files}</span></div>
+    <div><span class="k">磁盘可用</span><br><span class="v">${s.disk_free_gb} GB / ${s.disk_total_gb} GB</span></div>
+    <div><span class="k">数据目录</span><br><span class="v" style="font-size:11px">${s.data_dir}</span></div>`;
+}
+
+async function loadFiles() {
+  const r = await fetch('/api/files');
+  files = await r.json();
+  const tl = document.getElementById('timeline');
+  if (!files.length) { tl.innerHTML = '<div class="msg">（暂无采样文件）</div>'; return; }
+  tl.innerHTML = files.map((f, i) =>
+    `<div class="file" id="f${i}" onclick="pick(${i})">
+       <div>${f.start} → ${f.end}</div>
+       <div class="meta">${f.size_kb} KB</div>
+     </div>`).join('');
+  // 默认选中最后一个文件
+  pick(files.length - 1);
+}
+
+function pick(i) {
+  selStart = files[i].start;
+  selEnd = files[i].end;
+  document.querySelectorAll('.file').forEach(e => e.classList.remove('sel'));
+  document.getElementById('f' + i).classList.add('sel');
+  document.getElementById('pick').textContent = `已选：${selStart} ~ ${selEnd}`;
+}
+
+async function genFlame() {
+  if (!selStart) { alert('请先选择时间段'); return; }
+  const msg = document.getElementById('flameMsg');
+  const flame = document.getElementById('flame');
+  msg.className = 'msg'; msg.textContent = '生成中…（perf script + FlameGraph）';
+  flame.style.display = 'none';
+  try {
+    const r = await fetch('/api/flame', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({start: selStart, end: selEnd}),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || '生成失败');
+    flame.src = '/svg/' + d.svg + '?t=' + Date.now();
+    flame.style.display = 'block';
+    msg.textContent = `✅ ${d.svg}`;
+  } catch (e) {
+    msg.className = 'msg err'; msg.textContent = '❌ ' + e.message;
+  }
+}
+
+// 初始加载 + 每 10s 刷新状态/时间线
+loadStatus(); loadFiles();
+setInterval(() => { loadStatus(); loadFiles(); }, 10000);
+</script>
+</body>
+</html>

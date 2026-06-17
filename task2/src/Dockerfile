@@ -11,7 +11,7 @@ FROM openeuler:20.03
 RUN dnf install -y perf perl python3 python3-pip git tzdata \
     && ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
     && dnf clean all \
-    && pip3 install --no-cache-dir supervisor
+    && pip3 install --no-cache-dir supervisor flask
 
 # ---- FlameGraph 工具链（从 build context 拷，避免 build 时 github 网络依赖）----
 COPY FlameGraph /opt/FlameGraph
@@ -19,6 +19,7 @@ RUN chmod +x /opt/FlameGraph/*.pl
 
 # ---- profiler 应用（常变，置后）----
 COPY profiler /opt/app/profiler
+COPY web /opt/app/web
 COPY supervisord.conf /etc/supervisord.conf
 
 # ---- 运行环境（配置化，docker run -e 可覆盖）----
@@ -29,7 +30,8 @@ ENV PYTHONPATH=/opt/app \
     ROTATE_SECONDS=60 \
     RETAIN_HOURS=24 \
     SAMPLE_FREQ=99 \
-    TZ=Asia/Shanghai
+    TZ=Asia/Shanghai \
+    WEB_DIR=/opt/app/web
 
 VOLUME ["/data"]
 EXPOSE 8080
