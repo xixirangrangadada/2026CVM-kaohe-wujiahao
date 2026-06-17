@@ -53,6 +53,10 @@
 
 > stride<8 退化为节点大小 8B（节点 = 1 个指针 8B，stride<8 会让节点重叠）。
 
+**步长 vs 延迟曲线图（实测数据绘制，标注 64B / 128B 双拐点与 8→16 最大跳变）**：
+
+![步长 vs 访存延迟曲线（pointer chasing，16MB 数组，鲲鹏 920）](results/latency_curve.png)
+
 ### 3.2 拐点分析
 
 **双拐点（鲲鹏 920 特色）**：
@@ -125,6 +129,14 @@
 ### 6.1 结果
 
 两个火焰图都是 `chase` 函数占 **~99.85%**（纯用户态 load 循环），调用栈几乎无差异。
+
+**stride=8 火焰图**：
+
+![stride=8 火焰图（chase 占 99.85%，纯用户态 load 循环）](flamegraphs/stride8_flame.svg)
+
+**stride=64 火焰图**：
+
+![stride=64 火焰图（调用栈与 stride=8 几乎相同）](flamegraphs/stride64_flame.svg)
 
 ### 6.2 关键发现：火焰图看不出 cache miss 差异
 

@@ -45,6 +45,10 @@ perf script > perf_matrixprod.data
 
 **热点结论**：`__multf3` + `__addtf3` 合计 **~92%**——CPU 几乎全在软浮点运算库。单一热点集中，典型尖塔形态。
 
+**火焰图（尖塔，可直接交互查看 SVG）**：
+
+![matrixprod 火焰图（尖塔，__multf3/__addtf3 软浮点库占 92%）](flamegraphs/matrixprod_flame.svg)
+
 ### 2.2 rand-set 火焰图（扁平）
 
 **火焰图文件**：`flamegraphs/rand-set_flame.svg`
@@ -58,6 +62,10 @@ perf script > perf_matrixprod.data
 | 其他 | ~23% | 各种调度/系统调用 | 分散 |
 
 **热点结论**：无单一函数占大头，时间分散在用户态多个函数 + 内核态多个函数 → 扁平形态。
+
+**火焰图（扁平，可直接交互查看 SVG）**：
+
+![rand-set 火焰图（扁平，用户态 50% + 内核态 27%）](flamegraphs/rand-set_flame.svg)
 
 ---
 
