@@ -19,3 +19,7 @@ stress-ng
 *~
 __pycache__/
 *.pyc
+
+# 本地 PDF 生成工具（非考核产物，严格按考核目录标准不入库；
+# 已生成的 report.pdf 已嵌入图表，不依赖本目录）
+tools/

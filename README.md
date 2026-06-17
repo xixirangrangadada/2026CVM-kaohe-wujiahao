@@ -4,17 +4,17 @@
 
 ## 个人信息
 
-- 姓名：**<TODO 待填>**
-- 学号 / 学校：<TODO>
+- 姓名：**吴佳豪**
+- 学号：202400202108
 - GitHub：[@xixirangrangadada](https://github.com/xixirangrangadada)
 
 ## 题目完成情况
 
 | 题目 | 内容 | 状态 |
 |---|---|---|
-| 题1① | 多场景 perf stat 微架构指标采集 | ⬜ |
-| 题1② | 火焰图生成与热点分析 | ⬜ |
-| 题1③ | AI 辅助 Cache Line 微基准 | ⬜ |
+| 题1① | 多场景 perf stat 微架构指标采集 | ✅ 已完成 |
+| 题1② | 火焰图生成与热点分析 | ✅ 已完成 |
+| 题1③ | AI 辅助 Cache Line 微基准 | ✅ 已完成 |
 | 题2 | 容器化持续 CPU Profiling（选做） | ⬜ 暂缓 |
 
 ## 测试环境
