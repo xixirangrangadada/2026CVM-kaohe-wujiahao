@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>题1 微架构分析可视化</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+         background: #f5f6f8; color: #222; padding: 20px; max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  h2 { font-size: 15px; color: #2d7dff; margin: 22px 0 8px; border-left: 3px solid #2d7dff; padding-left: 8px; }
+  .sub { color: #888; font-size: 12px; margin-bottom: 12px; }
+  .chart { background: #fff; border: 1px solid #e2e4e8; border-radius: 6px; padding: 14px; margin-bottom: 12px; }
+  svg { width: 100%; height: auto; display: block; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; background: #fff; }
+  th, td { border: 1px solid #e2e4e8; padding: 6px 8px; text-align: center; }
+  th { background: #f8f9fb; color: #555; font-weight: 600; }
+  td.scn { text-align: left; font-family: monospace; font-weight: 600; }
+  td.hot { background: #ffdfd0; font-weight: 700; color: #c0392b; }
+  .note { color: #666; font-size: 12px; margin: 6px 0; line-height: 1.6; }
+  .layer { background: #fff; border: 1px solid #e2e4e8; border-radius: 6px; padding: 12px; margin-bottom: 8px; font-size: 13px; }
+  .layer b { color: #2d7dff; }
+  .layer .ev { color: #c0392b; font-family: monospace; }
+  .axis { stroke: #ccc; stroke-width: 1; }
+  .grid { stroke: #eee; stroke-width: 1; }
+  .lbl { font-size: 10px; fill: #888; }
+  .val { font-size: 11px; fill: #333; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>题1 微架构分析可视化</h1>
+<div class="sub">鲲鹏 920（TaiShan v110）· aarch64 · 4 核 @2.6GHz · L1d 256KiB / L2 2MiB / L3 128MiB · KVM guest · perf 4.19.90</div>
+
+<h2>① perf stat 五场景 — IPC 对比</h2>
+<div class="chart"><div id="ipcChart"></div>
+<div class="note">IPC（Instructions Per Cycle）越高越偏向计算密集。<b>queens 仅 1.52</b>——N-皇后回溯递归的分支预测失败拖累流水线，远低于纯计算的 int64/matrixprod（2.2+）。</div></div>
+
+<h2>① 五场景瓶颈矩阵（每列<b style="color:#c0392b">最高值标红</b> = 该负载压中的子系统）</h2>
+<div class="chart"><div id="matrix"></div>
+<div class="note">每种负载精准压出对应瓶颈：queens→分支预测器，rand-set→LLC+TLB 容量，matrixprod→L1 局部性，int64→纯 ALU。</div></div>
+
+<h2>③ Cache Line 步长-延迟曲线（pointer chasing）</h2>
+<div class="chart"><div id="latencyChart"></div>
+<div class="note">主拐点 <b>stride=64B</b>（每 cache line 正好 1 节点）；最大单步跳变 <b>8→16</b>（节点密集度减半）。16MB 数组在 L3(128MiB) 内，L1/L2 line cross 由 L3 兜底，故无"经典陡峭 64B 拐点"——要看经典 L1 拐点需 &lt;L1(256KiB) 小数组。</div></div>
+
+<h2>微架构差异分层总结（按子系统）</h2>
+<div class="layer"><b>执行单元（ALU/FPU）</b>：int64 IPC <span class="ev">2.22</span>（纯整数 ALU）、matrixprod IPC <span class="ev">2.44</span>（FPU 乘加）——计算型 IPC 普遍 2.2+，说明 TaiShan v110 的乱序执行 + 多发射利用充分。</div>
+<div class="layer"><b>分支预测</b>：queens 分支失败率 <span class="ev">12.19%</span>（5 场景最高，IPC 跌至 1.52）——回溯递归的不可预测分支是吞吐杀手；其余场景分支失败 &lt;1%。</div>
+<div class="layer"><b>访存层级（L1/L2/L3/TLB）</b>：matrixprod L1 miss <span class="ev">5.07%</span>（矩阵访问局部性差）；rand-set LLC miss <span class="ev">0.36%</span> + dTLB miss <span class="ev">0.166%</span>（512MB 随机写 ≫ L3 128MiB，撞容量墙 + 页表漫步）；read64 顺序访存 miss 极低。</div>
+<div class="layer"><b>虚拟化开销</b>：KVM guest 下访存型负载有内核态开销——rand-set sys 占 <span class="ev">30%</span>（随机写触发内存管理/page fault），read64 占 2.7%；计算型几乎纯用户态（~0%）。`perf_event_paranoid=-1` 确认 guest 内 PMU 全开放。</div>
+<div class="layer"><b>perf 4.19 ARM 事件映射</b>：<span class="ev">cache-misses</span> ≡ <span class="ev">L1-dcache-load-misses</span>（perf 4.19 在 ARM 把两通用名映射到同一 L1d refill 事件，冗余）；LLC/branch 用 raw code（0x037/0x021）采到真实计数。</div>
+
+<script>
+const scenarios = [
+  {name:'int64',     ipc:2.22, l1:0.0016, llc:0.00019, branch:0.031, dtlb:0.0023, kern:0},
+  {name:'matrixprod',ipc:2.44, l1:5.07,   llc:0.0053,  branch:0.90,  dtlb:0.0091, kern:0},
+  {name:'read64',    ipc:2.49, l1:0.020,  llc:0.0020,  branch:0.011, dtlb:0.013,  kern:2.7},
+  {name:'rand-set',  ipc:2.62, l1:0.82,   llc:0.36,    branch:0.032, dtlb:0.166,  kern:30},
+  {name:'queens',    ipc:1.52, l1:0.0014, llc:0.00015, branch:12.19, dtlb:0.0013, kern:0},
+];
+const latency = [[1,21.44],[2,21.28],[4,21.32],[8,21.52],[16,32.20],[32,39.99],[64,43.61],[128,44.08],[256,46.32]];
+
+// ---- IPC 柱状图 ----
+(function drawIPC() {
+  const W=600,H=260, P={l:40,r:20,t:20,b:44};
+  const cw=W-P.l-P.r, ch=H-P.t-P.b, maxY=3, n=scenarios.length;
+  const slot=cw/n, bw=slot*0.55;
+  let s=`<svg viewBox="0 0 ${W} ${H}">`;
+  for(let i=0;i<=3;i++){const y=P.t+ch-i/3*ch;s+=`<line class="grid" x1="${P.l}" y1="${y}" x2="${W-P.r}" y2="${y}"/>`;}
+  s+=`<line class="axis" x1="${P.l}" y1="${P.t+ch}" x2="${W-P.r}" y2="${P.t+ch}"/>`;
+  scenarios.forEach((sc,i)=>{
+    const x=P.l+slot*i+(slot-bw)/2;
+    const h=sc.ipc/maxY*ch, y=P.t+ch-h;
+    const color=sc.ipc<1.7?'#e67e22':'#2d7dff';
+    s+=`<rect x="${x}" y="${y}" width="${bw}" height="${h}" fill="${color}" rx="2"/>`;
+    s+=`<text class="val" x="${x+bw/2}" y="${y-5}" text-anchor="middle">${sc.ipc}</text>`;
+    s+=`<text class="lbl" x="${x+bw/2}" y="${H-P.b+16}" text-anchor="middle">${sc.name}</text>`;
+  });
+  s+=`<text class="lbl" x="6" y="${P.t+ch/2}" transform="rotate(-90 6 ${P.t+ch/2})" text-anchor="middle">IPC</text>`;
+  s+=`</svg>`;
+  document.getElementById('ipcChart').innerHTML=s;
+})();
+
+// ---- 瓶颈矩阵表 ----
+(function drawMatrix() {
+  const cols=[['IPC','ipc',3],['L1 miss%','l1',2],['LLC miss%','llc',3],['分支失败%','branch',2],['dTLB miss%','dtlb',3],['内核%','kern',1]];
+  const max={}; cols.forEach(c=>max[c[1]]=Math.max(...scenarios.map(s=>s[c[1]])));
+  let h='<table><thead><tr><th>场景</th>'+cols.map(c=>`<th>${c[0]}</th>`).join('')+'</tr></thead><tbody>';
+  scenarios.forEach(sc=>{
+    h+=`<tr><td class="scn">${sc.name}</td>`+cols.map(c=>{
+      const v=sc[c[1]], isMax=v===max[c[1]]&&v>0;
+      return `<td class="${isMax?'hot':''}">${v.toFixed(c[2])}</td>`;
+    }).join('')+'</tr>';
+  });
+  h+='</tbody></table>';
+  document.getElementById('matrix').innerHTML=h;
+})();
+
+// ---- 步长-延迟折线 ----
+(function drawLatency() {
+  const W=600,H=260, P={l:44,r:20,t:20,b:44};
+  const cw=W-P.l-P.r, ch=H-P.t-P.b, n=latency.length;
+  const ys=latency.map(p=>p[1]), minY=Math.min(...ys)-2, maxY=Math.max(...ys)+2;
+  const X=i=>P.l+i/(n-1)*cw;
+  const Y=v=>P.t+ch-(v-minY)/(maxY-minY)*ch;
+  let s=`<svg viewBox="0 0 ${W} ${H}">`;
+  for(let i=0;i<=4;i++){const y=P.t+i/4*ch;s+=`<line class="grid" x1="${P.l}" y1="${y}" x2="${W-P.r}" y2="${y}"/>`;}
+  s+=`<line class="axis" x1="${P.l}" y1="${P.t+ch}" x2="${W-P.r}" y2="${P.t+ch}"/>`;
+  // 折线
+  let pts=latency.map((p,i)=>`${X(i)},${Y(p[1])}`).join(' ');
+  s+=`<polyline points="${pts}" fill="none" stroke="#2d7dff" stroke-width="2"/>`;
+  // 点 + 标注
+  latency.forEach((p,i)=>{
+    s+=`<circle cx="${X(i)}" cy="${Y(p[1])}" r="3" fill="#2d7dff"/>`;
+    s+=`<text class="lbl" x="${X(i)}" y="${H-P.b+16}" text-anchor="middle">${p[0]}</text>`;
+    if(i===4) s+=`<text class="val" x="${X(i)}" y="${Y(p[1])-8}" text-anchor="middle">${p[1]}</text>`; // 8→16 跳变
+  });
+  // 64B 拐点标注
+  const i64=latency.findIndex(p=>p[0]===64);
+  s+=`<line stroke="#e67e22" stroke-width="1" stroke-dasharray="3,3" x1="${X(i64)}" y1="${P.t}" x2="${X(i64)}" y2="${P.t+ch}"/>`;
+  s+=`<text class="val" x="${X(i64)}" y="${Y(latency[i64][1])-8}" text-anchor="middle" fill="#e67e22">64B 拐点 ${latency[i64][1]}</text>`;
+  s+=`<text class="lbl" x="8" y="${P.t+ch/2}" transform="rotate(-90 8 ${P.t+ch/2})" text-anchor="middle">延迟 ns</text>`;
+  s+=`<text class="lbl" x="${P.l+cw/2}" y="${H-6}" text-anchor="middle">stride (B，按索引等距)</text>`;
+  s+=`</svg>`;
+  document.getElementById('latencyChart').innerHTML=s;
+})();
+</script>
+</body>
+</html>
