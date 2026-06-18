@@ -16,6 +16,7 @@ C 语言 **pointer chasing** 程序：构造链表节点、节点间距 = stride
 - `flamegraphs/` —— stride=1 vs stride=64 火焰图
 - `report.pdf` —— 步长 vs 延迟曲线 + 拐点微架构分析
 - `ai-chat-log/` —— AI 工具对话记录
+- `../visualizations.html` —— 题1 可视化汇总（步长延迟曲线标 64B 拐点 + 五场景 IPC/瓶颈矩阵，浏览器直接打开）
 
 ## 复现
 
