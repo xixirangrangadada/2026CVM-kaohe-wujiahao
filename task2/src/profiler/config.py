@@ -17,7 +17,9 @@ DEFAULT_STAT_EVENTS = [
     "cache-references",      # → LLC miss rate = cache-misses / cache-references
     "L1-dcache-load-misses",
     "branch-misses",
-    "branches",              # → 分支预测失败率 = branch-misses / branches
+    # branches 通用名在 perf 4.19 ARM 上 <not counted>（实测），用 raw code 0x021（BR_RETIRED）。
+    # name=branches 让 perf stat 输出的 event 列仍是 "branches"，与 metrics.derive 的 key 对齐。
+    "armv8_pmuv3_0/event=0x021,name=branches/",  # → 分支预测失败率 = branch-misses / branches
     "dTLB-load-misses",
 ]
 

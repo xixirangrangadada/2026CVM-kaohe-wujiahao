@@ -171,9 +171,11 @@ class Preflight:
             if len(parts) < 3:
                 continue
             val, ev = parts[0].strip(), parts[2].strip()
-            if ev not in events:
+            # 不依赖 events 精确匹配：raw 事件（如 branches 用 raw code）输出名是 name=
+            # 指定的短名，与 events 里的长串不一致；只跳过汇总行/空名。
+            if not ev or ev == "seconds time elapsed":
                 continue
-            if "<not supported>" in val or "<not" in val:
+            if "<not supported>" in val:
                 unsupported.append(ev)
             elif "<not counted>" in val:
                 notcounted.append(ev)
