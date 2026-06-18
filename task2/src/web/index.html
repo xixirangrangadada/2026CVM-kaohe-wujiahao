@@ -6,47 +6,69 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
-         background: #f5f6f8; color: #222; padding: 20px; }
-  h1 { font-size: 20px; margin-bottom: 16px; }
-  .grid { display: grid; grid-template-columns: 360px 1fr; gap: 16px; }
-  .panel { background: #fff; border: 1px solid #e2e4e8; border-radius: 6px;
-           padding: 14px; }
-  .panel h2 { font-size: 14px; color: #555; margin-bottom: 10px;
-              border-bottom: 1px solid #eee; padding-bottom: 6px; }
-  .status { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; }
+         background: #f5f6f8; color: #222; padding: 16px; }
+  h1 { font-size: 18px; margin-bottom: 10px; }
+  .toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+  .grid { display: grid; grid-template-columns: 340px 1fr; gap: 12px; }
+  .panel { background: #fff; border: 1px solid #e2e4e8; border-radius: 6px; padding: 12px; margin-bottom: 12px; }
+  .panel h2 { font-size: 13px; color: #555; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+  .status { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 12px; }
   .status .k { color: #888; }
   .status .v { font-weight: 600; }
   .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
-  .dot.on { background: #2ecc71; }
-  .dot.off { background: #ccc; }
-  .timeline { max-height: 320px; overflow-y: auto; }
-  .file { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; cursor: pointer;
-          font-size: 12px; font-family: monospace; }
+  .dot.on { background: #2ecc71; } .dot.off { background: #ccc; }
+  .metric-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+  .mcard { background: #f8f9fb; border: 1px solid #eef0f3; border-radius: 5px; padding: 8px; text-align: center; }
+  .mcard .mlabel { font-size: 11px; color: #888; }
+  .mcard .mval { font-size: 20px; font-weight: 700; color: #2d7dff; }
+  .mcard .mval.warn { color: #e67e22; }
+  canvas.trend { width: 100%; height: 90px; display: block; background: #fafbfc; border-radius: 4px; }
+  .timeline { max-height: 300px; overflow-y: auto; }
+  .file { padding: 5px 8px; border-bottom: 1px solid #f0f0f0; cursor: pointer; font-size: 12px; font-family: monospace; }
   .file:hover { background: #f0f7ff; }
   .file.sel { background: #d8eaff; }
   .file .meta { color: #888; font-size: 11px; }
-  .btn { background: #2d7dff; color: #fff; border: none; padding: 6px 14px;
-         border-radius: 4px; cursor: pointer; font-size: 13px; }
+  .file .evmark { color: #e67e22; font-weight: 600; }
+  .btn { background: #2d7dff; color: #fff; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
   .btn:hover { background: #1a6aef; }
+  .btn.gray { background: #6c757d; } .btn.gray:hover { background: #5a6268; }
+  .btn.green { background: #27ae60; } .btn.green:hover { background: #1e8449; }
   .btn:disabled { background: #aaa; cursor: not-allowed; }
-  .bar { margin: 8px 0; }
-  .bar input { padding: 4px; font-size: 12px; width: 130px; }
-  .flame { width: 100%; height: 600px; border: 1px solid #e2e4e8; border-radius: 4px; }
-  .msg { color: #888; font-size: 12px; margin: 8px 0; }
+  .bar { margin: 6px 0; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .flame { width: 100%; height: 560px; border: 1px solid #e2e4e8; border-radius: 4px; }
+  .msg { color: #888; font-size: 12px; margin: 6px 0; }
   .err { color: #d33; }
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 10; justify-content: center; align-items: center; }
+  .overlay.show { display: flex; }
+  .modal { background: #fff; border-radius: 8px; padding: 18px; width: 620px; max-width: 92vw; max-height: 82vh; overflow: auto; }
+  .modal h3 { margin-bottom: 10px; }
+  .check { padding: 7px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+  .check .ct { font-weight: 600; }
+  .check .cd { color: #555; font-size: 12px; margin-top: 2px; word-break: break-all; }
+  .check .ch { color: #888; font-size: 11px; margin-top: 2px; }
+  .PASS { color: #27ae60; } .FAIL { color: #d33; } .WARN { color: #e67e22; } .SKIP { color: #999; }
+  .closex { float: right; cursor: pointer; color: #999; font-size: 20px; line-height: 1; }
+  a.dlink { color: #2d7dff; text-decoration: none; } a.dlink:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
-<h1>🖥️ 持续 CPU Profiler</h1>
+<h1>🖥️ 持续 CPU Profiler（黑匣子）</h1>
+
+<div class="toolbar">
+  <button class="btn gray" onclick="runPreflight()">🔍 环境检查</button>
+  <button class="btn green" onclick="markEvent()">🎬 标记事件</button>
+  <span class="msg" id="tbmsg"></span>
+</div>
+
 <div class="grid">
-  <!-- 左：状态 + 时间线 -->
+  <!-- 左列 -->
   <div>
-    <div class="panel" style="margin-bottom:16px;">
+    <div class="panel">
       <h2>系统概览</h2>
       <div class="status" id="status">加载中…</div>
     </div>
     <div class="panel">
-      <h2>采样时间线（点击选时段）</h2>
+      <h2>采样时间线（点击选时段 · 🎬 为事件标记）</h2>
       <div class="bar">
         <button class="btn" onclick="genFlame()">🔥 生成选中时段火焰图</button>
         <span class="msg" id="pick"></span>
@@ -54,75 +76,173 @@
       <div class="timeline" id="timeline">加载中…</div>
     </div>
   </div>
-  <!-- 右：火焰图 -->
-  <div class="panel">
-    <h2>火焰图（SVG 可交互缩放/搜索）</h2>
-    <div class="msg" id="flameMsg">选中时间段后点"生成火焰图"</div>
-    <iframe class="flame" id="flame" style="display:none;"></iframe>
+  <!-- 右列 -->
+  <div>
+    <div class="panel">
+      <h2>CPU 指标趋势（perf stat · 呼应题1①）</h2>
+      <div class="metric-cards">
+        <div class="mcard"><div class="mlabel">IPC</div><div class="mval" id="m_ipc">—</div></div>
+        <div class="mcard"><div class="mlabel">LLC miss</div><div class="mval" id="m_llc">—</div></div>
+        <div class="mcard"><div class="mlabel">分支失败率</div><div class="mval" id="m_br">—</div></div>
+      </div>
+      <canvas class="trend" id="trend" width="800" height="90"></canvas>
+      <div class="msg" id="metricMsg">（暂无指标：等待第一个采集窗口，或 perf stat 事件在当前 CPU 不可用）</div>
+    </div>
+    <div class="panel">
+      <h2>火焰图（SVG 可交互缩放/搜索）</h2>
+      <div class="msg" id="flameMsg">选中时间段后点"生成火焰图"</div>
+      <iframe class="flame" id="flame" style="display:none;"></iframe>
+    </div>
+  </div>
+</div>
+
+<!-- 环境检查弹层 -->
+<div class="overlay" id="pfOverlay">
+  <div class="modal">
+    <h3><span class="closex" onclick="closePf()">×</span>🔍 环境自检报告</h3>
+    <div id="pfSummary" class="msg"></div>
+    <div id="pfBody"></div>
   </div>
 </div>
 
 <script>
-let files = [];
+let files = [], metrics = [], events = [];
 let selStart = null, selEnd = null;
+const $ = id => document.getElementById(id);
 
+// ---- 系统概览 ----
 async function loadStatus() {
-  const r = await fetch('/api/status');
-  const s = await r.json();
-  const dot = s.collecting ? '<span class="dot on"></span>采集中' : '<span class="dot off"></span>已停止';
-  document.getElementById('status').innerHTML = `
-    <div><span class="k">状态</span><br><span class="v">${dot}</span></div>
-    <div><span class="k">采样文件</span><br><span class="v">${s.files}</span></div>
-    <div><span class="k">磁盘可用</span><br><span class="v">${s.disk_free_gb} GB / ${s.disk_total_gb} GB</span></div>
-    <div><span class="k">数据目录</span><br><span class="v" style="font-size:11px">${s.data_dir}</span></div>`;
+  try {
+    const s = await (await fetch('/api/status')).json();
+    const dot = s.collecting ? '<span class="dot on"></span>采集中' : '<span class="dot off"></span>已停止';
+    $('status').innerHTML =
+      `<div><span class="k">状态</span><br><span class="v">${dot}</span></div>` +
+      `<div><span class="k">采样文件</span><br><span class="v">${s.files}</span></div>` +
+      `<div><span class="k">磁盘可用</span><br><span class="v">${s.disk_free_gb} / ${s.disk_total_gb} GB</span></div>` +
+      `<div><span class="k">数据目录</span><br><span class="v" style="font-size:10px">${s.data_dir}</span></div>`;
+  } catch (e) { $('status').innerHTML = '<span class="err">状态获取失败</span>'; }
 }
 
+// ---- 时间线（含事件标记 + 一键诊断）----
 async function loadFiles() {
-  const r = await fetch('/api/files');
-  files = await r.json();
-  const tl = document.getElementById('timeline');
+  [files, events] = await Promise.all([fetch('/api/files').then(r=>r.json()), fetch('/api/events').then(r=>r.json())]);
+  const tl = $('timeline');
   if (!files.length) { tl.innerHTML = '<div class="msg">（暂无采样文件）</div>'; return; }
-  tl.innerHTML = files.map((f, i) =>
-    `<div class="file" id="f${i}" onclick="pick(${i})">
-       <div>${f.start} → ${f.end}</div>
-       <div class="meta">${f.size_kb} KB</div>
-     </div>`).join('');
-  // 默认选中最后一个文件
+  tl.innerHTML = files.map((f, i) => {
+    const evs = events.filter(e => f.start <= e.ts && e.ts <= f.end);
+    const mark = evs.length ? ` <span class="evmark">🎬${evs.map(e => e.name).join(',')}</span>` : '';
+    const diag = evs.length
+      ? ` · <a class="dlink" href="#" onclick="event.stopPropagation();diagnose('${f.start}','${f.end}');return false;">一键诊断</a>` : '';
+    return `<div class="file" id="f${i}" onclick="pick(${i})">
+       <div>${f.start} → ${f.end}${mark}</div>
+       <div class="meta">${f.size_kb} KB${diag}</div>
+     </div>`;
+  }).join('');
   pick(files.length - 1);
 }
 
 function pick(i) {
-  selStart = files[i].start;
-  selEnd = files[i].end;
+  selStart = files[i].start; selEnd = files[i].end;
   document.querySelectorAll('.file').forEach(e => e.classList.remove('sel'));
-  document.getElementById('f' + i).classList.add('sel');
-  document.getElementById('pick').textContent = `已选：${selStart} ~ ${selEnd}`;
+  $('f' + i).classList.add('sel');
+  $('pick').textContent = `已选：${selStart} ~ ${selEnd}`;
 }
 
+// ---- CPU 指标 ----
+async function loadMetrics() {
+  metrics = await fetch('/api/metrics?limit=30').then(r => r.json());
+  if (!metrics.length) { $('metricMsg').textContent = '（暂无指标：等待第一个采集窗口）'; return; }
+  const last = metrics[metrics.length - 1].derived;
+  const ipcEl = $('m_ipc');
+  ipcEl.textContent = last.ipc != null ? last.ipc : 'N/A';
+  ipcEl.className = 'mval' + (last.ipc != null && last.ipc < 0.5 ? ' warn' : '');
+  $('m_llc').textContent = last.llc_miss_rate != null ? (last.llc_miss_rate * 100).toFixed(2) + '%' : 'N/A';
+  $('m_br').textContent = last.branch_miss_rate != null ? (last.branch_miss_rate * 100).toFixed(2) + '%' : 'N/A';
+  $('metricMsg').textContent = `最近窗口 ${metrics[metrics.length - 1].start} · 共 ${metrics.length} 个`;
+  drawTrend();
+}
+
+function drawTrend() {
+  const c = $('trend'), dpr = window.devicePixelRatio || 1;
+  const W = c.clientWidth || 800, H = 90;
+  c.width = W * dpr; c.height = H * dpr;
+  const ctx = c.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+  const vals = metrics.map(m => m.derived.ipc).filter(v => v != null);
+  if (vals.length < 2) return;
+  const max = Math.max(...vals, 1) * 1.1;
+  ctx.strokeStyle = '#eee'; ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) { const y = i * H / 4; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  ctx.strokeStyle = '#2d7dff'; ctx.lineWidth = 2; ctx.beginPath();
+  let started = false;
+  metrics.forEach((m, i) => {
+    const v = m.derived.ipc;
+    if (v == null) return;
+    const x = (i / (metrics.length - 1)) * W;
+    const y = H - (v / max) * H;
+    if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  ctx.fillStyle = '#2d7dff'; ctx.font = '11px sans-serif'; ctx.fillText('IPC 趋势', 6, 14);
+}
+
+// ---- 火焰图 ----
 async function genFlame() {
   if (!selStart) { alert('请先选择时间段'); return; }
-  const msg = document.getElementById('flameMsg');
-  const flame = document.getElementById('flame');
+  const msg = $('flameMsg'), flame = $('flame');
   msg.className = 'msg'; msg.textContent = '生成中…（perf script + FlameGraph）';
   flame.style.display = 'none';
   try {
-    const r = await fetch('/api/flame', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({start: selStart, end: selEnd}),
-    });
+    const r = await fetch('/api/flame', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ start: selStart, end: selEnd }) });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || '生成失败');
     flame.src = '/svg/' + d.svg + '?t=' + Date.now();
     flame.style.display = 'block';
     msg.textContent = `✅ ${d.svg}`;
-  } catch (e) {
-    msg.className = 'msg err'; msg.textContent = '❌ ' + e.message;
-  }
+  } catch (e) { msg.className = 'msg err'; msg.textContent = '❌ ' + e.message; }
 }
 
-// 初始加载 + 每 10s 刷新状态/时间线
-loadStatus(); loadFiles();
-setInterval(() => { loadStatus(); loadFiles(); }, 10000);
+// ---- 一键诊断：以事件所在窗口直接出火焰图 ----
+async function diagnose(fStart, fEnd) {
+  selStart = fStart; selEnd = fEnd;
+  document.querySelectorAll('.file').forEach(e => e.classList.remove('sel'));
+  $('tbmsg').textContent = `🎬 诊断事件窗口 ${fStart} ~ ${fEnd} …`;
+  await genFlame();
+}
+
+// ---- 事件标记 ----
+async function markEvent() {
+  const name = prompt('事件名称（如：开始跑负载 X）');
+  if (!name) return;
+  const r = await fetch('/api/event', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }) });
+  const d = await r.json();
+  if (!r.ok) { alert('标记失败：' + (d.error || '')); return; }
+  $('tbmsg').textContent = `🎬 已标记「${d.name}」@ ${d.ts}`;
+  loadFiles();
+}
+
+// ---- 环境检查 ----
+async function runPreflight() {
+  $('pfSummary').textContent = '检查中…（跑 perf 采样约 5-10s）';
+  $('pfBody').innerHTML = '';
+  $('pfOverlay').classList.add('show');
+  try {
+    const r = await (await fetch('/api/preflight')).json();
+    const s = r.summary;
+    $('pfSummary').innerHTML = `✅${s.pass} 通过 · ❌${s.fail} 失败 · ⚠️${s.warn} 警告 · ⏭️${s.skip} 跳过 — <b>${s.ready ? '环境就绪' : '有项未通过'}</b>`;
+    $('pfBody').innerHTML = r.checks.map(c =>
+      `<div class="check"><span class="ct"><span class="${c.status}">[${c.status}]</span> ${c.title}</span>` +
+      `<div class="cd">${c.detail}</div>${c.hint ? `<div class="ch">💡 ${c.hint}</div>` : ''}</div>`).join('');
+  } catch (e) { $('pfSummary').innerHTML = '<span class="err">检查失败：' + e.message + '</span>'; }
+}
+function closePf() { $('pfOverlay').classList.remove('show'); }
+
+// ---- 初始化 + 轮询 ----
+loadStatus(); loadFiles(); loadMetrics();
+setInterval(() => { loadStatus(); loadFiles(); loadMetrics(); }, 10000);
 </script>
 </body>
 </html>
