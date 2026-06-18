@@ -1,17 +1,20 @@
-"""C1 采集器 —— perf record 后台持续采集 + 定时轮转 + SIGTERM 优雅停。
+"""C1 采集器 —— perf record（调用栈）+ perf stat（PMU 指标）后台持续采集 + 定时轮转 + SIGTERM 优雅停。
 
 设计（见 docs/架构设计.md）：
-- 轮转方式：外层循环 subprocess。每窗口 `perf record -F <freq> -a -g -- sleep <rotate>`
-  跑完，Python 用 naming.py 归档命名，进入下一窗口。命名可控、信号好处理、易测。
-  不选 perf --switch-output（其切片命名不可控）。窗口切换间隙（几百 ms perf 重启）
-  对"黑匣子"场景可接受。
-- 优雅停：SIGTERM/SIGINT → 设 stop flag + 给当前 perf 子进程转发 SIGINT（不是 SIGTERM！
-  perf 对 SIGINT 优雅退出、写完 perf.data；对 SIGTERM 会丢数据）→ 归档最后窗口。
-- 产物：每窗口 perf.data → <data_dir>/perf-<start>-<end>.data（naming 约定）。
+- 双采集并行：每窗口同时起 `perf record -F <freq> -a -g -- sleep <rotate>`（调用栈→火焰图）
+  和 `perf stat -x , -e <events> -- sleep <rotate>`（PMU 计数器→CPU 指标，呼应题1①）。
+  两者同 sleep 时长，自然同步结束。record 是主链，stat 是辅链（失败不影响 record）。
+- 轮转方式：外层循环 subprocess。每窗口跑完，Python 用 naming.py 归档命名，进入下一窗口。
+  命名可控、信号好处理、易测。不选 perf --switch-output（其切片命名不可控）。
+  窗口切换间隙（几百 ms perf 重启）对"黑匣子"场景可接受。
+- 优雅停：SIGTERM/SIGINT → 设 stop flag + 给当前 record 转发 SIGINT（不是 SIGTERM！
+  perf 对 SIGINT 优雅退出、写完 perf.data；对 SIGTERM 会丢数据）+ 给 stat 转发 SIGTERM
+  → 归档最后窗口。
+- 产物：每窗口 → perf-<start>-<end>.data（调用栈）+ metrics-<start>-<end>.csv（指标），1:1 对应。
 
 用法：
-    python -m profiler.collect                      # 前台跑，SIGTERM/Ctrl-C 停
-    ROTATE_SECONDS=10 python -m profiler.collect    # 测试用短窗口
+    python -m profiler.collector                    # 前台跑，SIGTERM/Ctrl-C 停
+    ROTATE_SECONDS=10 python -m profiler.collector  # 测试用短窗口
 """
 from __future__ import annotations
 
@@ -42,7 +45,8 @@ class Collector:
         self.cfg = config or Config.from_env()
         self.cfg.data_dir.mkdir(parents=True, exist_ok=True)
         self._stop = False
-        self._proc: subprocess.Popen | None = None
+        self._proc: subprocess.Popen | None = None        # perf record（调用栈 → 火焰图）
+        self._stat_proc: subprocess.Popen | None = None   # perf stat（PMU 计数器 → CPU 指标）
 
     # ---- 信号 ----
     def _install_signal_handlers(self) -> None:
@@ -55,41 +59,68 @@ class Collector:
         signal.signal(signal.SIGINT, handler)
 
     def _interrupt_current(self) -> None:
-        """给当前 perf 子进程发 SIGINT（优雅写完 perf.data 后退出）。"""
+        """优雅停当前窗口的两个 perf 子进程。
+
+        - record：转发 SIGINT（perf 对 SIGINT 优雅写完 perf.data；对 SIGTERM 会丢数据）
+        - stat：转发 SIGTERM（stat 无写盘语义，其 CSV 汇总在退出时落盘）
+        """
         if self._proc and self._proc.poll() is None:
-            log.info("向 perf 子进程转发 SIGINT（优雅写盘）")
+            log.info("向 perf record 转发 SIGINT（优雅写盘）")
             self._proc.send_signal(signal.SIGINT)
+        if self._stat_proc and self._stat_proc.poll() is None:
+            log.info("向 perf stat 转发 SIGTERM")
+            self._stat_proc.send_signal(signal.SIGTERM)
 
     # ---- 单窗口采集 ----
     def _collect_window(self, start: datetime) -> datetime:
-        """采集一个轮转窗口。返回窗口结束时间。"""
-        tmp = Path(tempfile.gettempdir()) / "perf_current.data"
-        if tmp.exists():
-            tmp.unlink()
+        """采集一个轮转窗口：perf record（调用栈）+ perf stat（PMU 指标）并行。返回窗口结束时间。
 
-        cmd = [
+        两者用同样时长的 `sleep`，自然同步结束；record 是主链（出火焰图），stat 是辅链
+        （出 CPU 指标，呼应题1①）。stat 失败不影响 record——_archive_metrics 只 warn 不抛。
+        """
+        data_tmp = Path(tempfile.gettempdir()) / "perf_current.data"
+        metrics_tmp = Path(tempfile.gettempdir()) / "metrics_current.csv"
+        for t in (data_tmp, metrics_tmp):
+            if t.exists():
+                t.unlink()
+
+        record_cmd = [
             PERF, "record",
             "-F", str(self.cfg.sample_freq),
             "-a", "-g",
-            "-o", str(tmp),
+            "-o", str(data_tmp),
             *self.cfg.perf_extra,
             "--", "sleep", str(self.cfg.rotate_seconds),
         ]
-        log.info("窗口开始 %s | 时长 %ds | cmd: %s",
-                 naming.fmt_ts(start), self.cfg.rotate_seconds, " ".join(cmd))
+        stat_cmd = [
+            PERF, "stat", "-x", ",",
+            "-e", ",".join(self.cfg.stat_events),
+            "-a", "-o", str(metrics_tmp),
+            "--", "sleep", str(self.cfg.rotate_seconds),
+        ]
+        log.info("窗口开始 %s | 时长 %ds | record+stat 并行",
+                 naming.fmt_ts(start), self.cfg.rotate_seconds)
 
         try:
-            self._proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL,
-                                          stderr=subprocess.DEVNULL)  # DEVNULL：避免 PIPE 不读致 perf 写满缓冲死锁
+            # DEVNULL：避免 PIPE 不读致 perf 写满缓冲死锁
+            self._proc = subprocess.Popen(record_cmd, stdout=subprocess.DEVNULL,
+                                          stderr=subprocess.DEVNULL)
+            self._stat_proc = subprocess.Popen(stat_cmd, stdout=subprocess.DEVNULL,
+                                               stderr=subprocess.DEVNULL)
             self._proc.wait()
+            # stat 与 record 同 sleep 时长，正常同时结束；保险起见等它落盘
+            if self._stat_proc.poll() is None:
+                self._stat_proc.wait()
             rc = self._proc.returncode
         finally:
             self._proc = None
+            self._stat_proc = None
 
         if rc != 0:
             log.warning("perf record 退出码 %d（窗口 %s），数据可能不完整", rc, naming.fmt_ts(start))
         end = datetime.now()
-        self._archive(tmp, start, end)
+        self._archive(data_tmp, start, end)
+        self._archive_metrics(metrics_tmp, start, end)
         return end
 
     def _archive(self, src: Path, start: datetime, end: datetime) -> None:
@@ -100,6 +131,16 @@ class Collector:
         dst = self.cfg.data_dir / naming.data_filename(start, end)
         shutil.move(str(src), str(dst))  # 跨设备安全（rename 只支持同文件系统）
         log.info("已归档 %s (%d KB)", dst.name, dst.stat().st_size // 1024)
+
+    def _archive_metrics(self, src: Path, start: datetime, end: datetime) -> None:
+        """归档 perf stat 指标为 metrics-<start>-<end>.csv（辅链，失败只 warn 不影响主链）。"""
+        if not src.exists() or src.stat().st_size == 0:
+            log.warning("窗口 %s 无指标数据（perf stat 未产出），跳过指标归档",
+                        naming.fmt_ts(start))
+            return
+        dst = self.cfg.data_dir / naming.metrics_filename(start, end)
+        shutil.move(str(src), str(dst))
+        log.info("已归档指标 %s (%d B)", dst.name, dst.stat().st_size)
 
     # ---- 主循环 ----
     def run(self) -> int:

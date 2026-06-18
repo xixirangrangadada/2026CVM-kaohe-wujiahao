@@ -4,11 +4,15 @@
 禁止在别处字符串拼接文件名。约定改了只动这里。
 
 约定（见 docs/架构设计.md 第三节）：
-    采样文件：  /data/perf/perf-<start>-<end>.data
+    采样文件：  /data/perf/perf-<start>-<end>.data     (perf record 调用栈 → 火焰图)
+    指标文件：  /data/perf/metrics-<start>-<end>.csv   (perf stat 计数器 → CPU 指标, 对应题1①)
     火焰图：    /data/svg/flame-<start>-<end>.svg
     时间格式：  本地时区 YYYYmmdd_HHMMSS（下划线分隔，文件名安全）
 
-例：perf-20260617_031200-20260617_031300.data  # 03:12:00 ~ 03:13:00 一分钟
+采样文件与指标文件共享同一段 <start>-<end> 时段，1:1 对应。
+
+例：perf-20260617_031200-20260617_031300.data    # 03:12:00 ~ 03:13:00 一分钟的调用栈
+    metrics-20260617_031200-20260617_031300.csv  # 同一时段的 PMU 计数器
 """
 from __future__ import annotations
 
@@ -23,9 +27,11 @@ _TS_FMT = "%Y%m%d_%H%M%S"
 # 时间戳形如 20260617_031200，用 \d{8}_\d{6} 精确匹配
 _DATA_RE = re.compile(r"^perf-(\d{8}_\d{6})-(\d{8}_\d{6})\.data$")
 _SVG_RE = re.compile(r"^flame-(\d{8}_\d{6})-(\d{8}_\d{6})\.svg$")
+_METRICS_RE = re.compile(r"^metrics-(\d{8}_\d{6})-(\d{8}_\d{6})\.csv$")
 
 DATA_SUFFIX = ".data"
 SVG_SUFFIX = ".svg"
+METRICS_SUFFIX = ".csv"
 
 
 class NamingError(ValueError):
@@ -75,6 +81,24 @@ def parse_svg_filename(name: str) -> tuple[datetime, datetime]:
     m = _SVG_RE.match(name)
     if not m:
         raise NamingError(f"非法火焰图文件名 {name!r}")
+    return parse_ts(m.group(1)), parse_ts(m.group(2))
+
+
+def metrics_filename(start: datetime, end: datetime) -> str:
+    """时间段 → 指标文件名（perf stat 计数器 CSV，不含目录）。
+
+    与 data_filename 共享同一段 <start>-<end>，1:1 对应。
+    """
+    if end < start:
+        raise NamingError(f"end {end} 早于 start {start}")
+    return f"metrics-{fmt_ts(start)}-{fmt_ts(end)}{METRICS_SUFFIX}"
+
+
+def parse_metrics_filename(name: str) -> tuple[datetime, datetime]:
+    """指标文件名 → (start, end)。"""
+    m = _METRICS_RE.match(name)
+    if not m:
+        raise NamingError(f"非法指标文件名 {name!r}")
     return parse_ts(m.group(1)), parse_ts(m.group(2))
 
 

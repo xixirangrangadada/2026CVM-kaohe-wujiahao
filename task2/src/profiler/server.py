@@ -21,8 +21,11 @@ from flask import Flask, jsonify, request, send_from_directory
 
 from . import naming
 from .config import Config
+from .events import add_event, delete_event, load_events
 from .flamegraph import FlamegraphError, generate
 from .log import setup_logging
+from .metrics import read_recent
+from .preflight import Preflight
 from .query import QueryError, locate_files, parse_time_arg
 
 log = logging.getLogger("profiler.server")
@@ -103,6 +106,51 @@ def api_status():
         "disk_free_gb": round(usage.free / 1e9, 1),
         "data_dir": str(cfg.data_dir),
     })
+
+
+@app.route("/api/metrics")
+def api_metrics():
+    """最近 N 个窗口的 CPU 指标趋势（IPC / LLC miss / 分支失败率，供前端折线）。
+
+    数据来自 collector 并行采集的 perf stat（呼应题1①）。?limit=20
+    """
+    try:
+        limit = min(int(request.args.get("limit", "20")), 200)
+    except ValueError:
+        limit = 20
+    return jsonify(read_recent(cfg.data_dir, limit))
+
+
+@app.route("/api/preflight")
+def api_preflight():
+    """环境自检（前端"环境检查"按钮）。会跑 perf 采样，约耗时 5-10s。"""
+    results = Preflight(cfg).run_all()
+    return jsonify(Preflight.report_json(results))
+
+
+@app.route("/api/events")
+def api_events():
+    """列出全部事件（时间线高亮用）。"""
+    return jsonify(load_events())
+
+
+@app.route("/api/event", methods=["POST"])
+def api_event_add():
+    """标记一个事件（记当前时间戳）。body: {"name": "...", "note": "..."}"""
+    data = request.get_json(silent=True) or {}
+    name = data.get("name", "")
+    if not name.strip():
+        return jsonify({"error": "事件名不能为空"}), 400
+    ev = add_event(name, data.get("note", ""))
+    return jsonify(ev), 201
+
+
+@app.route("/api/event/<eid>", methods=["DELETE"])
+def api_event_del(eid):
+    """删除一个事件。"""
+    if delete_event(eid):
+        return jsonify({"ok": True})
+    return jsonify({"error": "事件不存在"}), 404
 
 
 @app.route("/svg/<name>")

@@ -8,6 +8,19 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+# perf stat 采集的 PMU 事件集（呼应题1①）。preflight 自检 + collector 指标采集共享，
+# 改这里两处同步。衍生率（IPC / LLC miss / 分支预测失败率）在 server 算。
+DEFAULT_STAT_EVENTS = [
+    "cycles",
+    "instructions",          # → IPC = instructions / cycles
+    "cache-misses",
+    "cache-references",      # → LLC miss rate = cache-misses / cache-references
+    "L1-dcache-load-misses",
+    "branch-misses",
+    "branches",              # → 分支预测失败率 = branch-misses / branches
+    "dTLB-load-misses",
+]
+
 
 @dataclass
 class Config:
@@ -17,6 +30,7 @@ class Config:
     retain_hours: int = 24                   # 保留时长（小时），超期由 janitor 清理
     sample_freq: int = 99                    # perf 采样频率 Hz
     perf_extra: list[str] = field(default_factory=list)  # 额外 perf record 参数
+    stat_events: list[str] = field(default_factory=lambda: list(DEFAULT_STAT_EVENTS))  # perf stat 事件集
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -26,6 +40,8 @@ class Config:
 
         extra_raw = env("PERF_EXTRA", "")
         perf_extra = extra_raw.split() if extra_raw else []
+        events_raw = env("PERF_EVENTS", "")
+        stat_events = [e.strip() for e in events_raw.split(",") if e.strip()] or list(DEFAULT_STAT_EVENTS)
         return cls(
             data_dir=Path(env("DATA_DIR", "/data/perf")),
             svg_dir=Path(env("SVG_DIR", "/data/svg")),
@@ -33,4 +49,5 @@ class Config:
             retain_hours=int(env("RETAIN_HOURS", "24")),
             sample_freq=int(env("SAMPLE_FREQ", "99")),
             perf_extra=perf_extra,
+            stat_events=stat_events,
         )
