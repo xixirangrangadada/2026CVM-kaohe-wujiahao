@@ -13,9 +13,17 @@ RUN dnf install -y perf perl python3 python3-pip git tzdata \
     && dnf clean all \
     && pip3 install --no-cache-dir supervisor flask
 
-# ---- FlameGraph 工具链（从 build context 拷，避免 build 时 github 网络依赖）----
+# ---- FlameGraph 工具链（双保险：仓库内置 COPY 优先，缺则 git clone 兜底）----
+# 仓库内已带 src/FlameGraph/（stackcollapse-perf.pl + flamegraph.pl，~53KB，离线可用）。
+# 若 build context 未提供该目录（例如直接拿 Dockerfile 单文件构建），
+# 则构建时从 GitHub 拉取，保证 docker build 零额外步骤即可成。
 COPY FlameGraph /opt/FlameGraph
-RUN chmod +x /opt/FlameGraph/*.pl
+RUN if [ ! -x /opt/FlameGraph/flamegraph.pl ] || [ ! -x /opt/FlameGraph/stackcollapse-perf.pl ]; then \
+        rm -rf /opt/FlameGraph && \
+        git clone --depth 1 https://github.com/brendangregg/FlameGraph.git /opt/FlameGraph; \
+    fi && \
+    chmod +x /opt/FlameGraph/*.pl && \
+    test -x /opt/FlameGraph/flamegraph.pl && test -x /opt/FlameGraph/stackcollapse-perf.pl
 
 # ---- profiler 应用（常变，置后）----
 COPY profiler /opt/app/profiler
@@ -36,5 +44,5 @@ ENV PYTHONPATH=/opt/app \
 VOLUME ["/data"]
 EXPOSE 8080
 
-# supervisord 前台（PID 1），管 collector + janitor
+# supervisord 前台（PID 1），管 collector + janitor + server
 CMD ["supervisord", "-n", "-c", "/etc/supervisord.conf"]

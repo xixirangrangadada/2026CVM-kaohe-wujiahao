@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>吴佳豪 - 简历</title>
+<style>
+  @page {
+    size: A4;
+    margin: 14mm 16mm 12mm 16mm;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Source Han Sans CN", "Noto Sans CJK SC", "SimHei", sans-serif;
+    color: #1a1a1a;
+    font-size: 10.2pt;
+    line-height: 1.5;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* ===== 姓名 ===== */
+  h1.name {
+    font-size: 22pt;
+    margin: 0 0 4px 0;
+    text-align: center;
+    letter-spacing: 4px;
+    color: #0f1e3d;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 10.5pt;
+    color: #333;
+    margin: 0 0 3px 0;
+    font-weight: 500;
+  }
+  .contact {
+    text-align: center;
+    font-size: 9.8pt;
+    color: #444;
+    margin: 0 0 6px 0;
+  }
+  .contact a { color: #1a5fb4; text-decoration: none; }
+
+  hr.topline {
+    border: none;
+    border-top: 2px solid #0f1e3d;
+    margin: 8px 0 10px 0;
+  }
+
+  /* ===== 板块标题 ===== */
+  h2 {
+    font-size: 12pt;
+    color: #0f1e3d;
+    border-bottom: 1.5px solid #0f1e3d;
+    padding-bottom: 2px;
+    margin: 11px 0 6px 0;
+    letter-spacing: 1px;
+  }
+
+  /* ===== 教育背景 ===== */
+  .edu-line {
+    font-size: 10.5pt;
+    font-weight: 600;
+    margin: 0 0 3px 0;
+  }
+  ul { margin: 3px 0 4px 0; padding-left: 18px; }
+  li { margin: 1.5px 0; }
+  .courses { font-size: 9.8pt; color: #333; }
+
+  /* ===== 学习方向 ===== */
+  .dir-item { margin: 2px 0 4px 0; }
+  .dir-item b { color: #0f1e3d; }
+
+  /* ===== 技术实践 ===== */
+  .practice-item { margin: 3px 0; }
+  .practice-item b { color: #1a5fb4; }
+
+  /* ===== 技能 ===== */
+  .skill-line { margin: 2.5px 0; }
+  .skill-line b {
+    display: inline-block;
+    width: 92px;
+    color: #0f1e3d;
+  }
+
+  /* 避免 SVG/emoji 渲染问题,统一用文字符号 */
+  .sym { color: #1a5fb4; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<h1 class="name">吴佳豪</h1>
+<p class="subtitle">深圳技术大学 ｜ 计算机科学与技术 ｜ 2024 级本科在读</p>
+<p class="contact">
+  <span class="sym">✉</span> 2512722974@qq.com
+  &nbsp;｜&nbsp;
+  <span class="sym">⌥</span> <a href="https://github.com/xixirangrangadada">github.com/xixirangrangadada</a>
+</p>
+<hr class="topline">
+
+<h2>教育背景</h2>
+<p class="edu-line">深圳技术大学 ｜ 计算机科学与技术 ｜ 本科在读（2024 级 · 大二）</p>
+<ul>
+  <li><b>主修课程</b>：数据结构、计算机组成原理、操作系统、计算机网络、数据库原理、算法设计与分析、C++/Java/Python 程序设计、编译原理、高等数学、线性代数、概率论与数理统计、离散数学</li>
+</ul>
+
+<h2>学习方向与自学轨迹</h2>
+<ul>
+  <li class="dir-item"><b>昇腾 AscendC 算子开发（主线方向）</b>：已通过 <b>AscendC 初级认证</b>，正在备考中级认证。围绕昇腾 AI 核心架构学习算子开发与性能调优，对系统底层与高性能计算方向有浓厚兴趣，计划参与后续算子开发比赛与实战项目。</li>
+  <li class="dir-item"><b>C++ 后端（辅线）</b>：作为算子方向的工程基础，正在学习 Linux 网络编程（epoll）与 muduo 网络库的 Reactor 模型，理解事件驱动与并发架构。</li>
+  <li class="dir-item"><b>自我驱动</b>：习惯结合 AI 编程工具进行系统化学习与问题排查，注重原理理解与动手实践相结合。</li>
+</ul>
+
+<h2>技术实践：AscendC 算子性能优化</h2>
+<p style="margin:2px 0 4px 0;">围绕昇腾 AI 核心架构，学习并实践算子开发与性能调优的关键技术：</p>
+<ul>
+  <li class="practice-item"><b>Tiling（分块）策略</b>：将输入数据按硬件 Cube/Vector 单元的计算能力切分，学习基于数据量与硬件规格推导平均 tiling，平衡算子计算效率与片上存储约束。</li>
+  <li class="practice-item"><b>流水线（Pipeline）技术</b>：通过多 stage 流水掩盖 CopyIn / Compute / CopyOut 各阶段的执行耗时，提升 AI Core 数据搬运与计算的并行度。</li>
+  <li class="practice-item"><b>Double Buffer（双缓冲）</b>：利用乒乓缓冲机制，使前一份数据计算与后一份数据搬运重叠执行，减少流水线 stall。</li>
+  <li class="practice-item"><b>Shape 推导</b>：基于输入 shape 与算子语义，推导中间各 stage 的数据排布与 tiling 参数，完成算子的通用形状适配。</li>
+</ul>
+
+<h2>专业技能</h2>
+<p class="skill-line"><b>算子 / 底层</b>：昇腾 AscendC 算子开发、Linux 性能分析（perf stat / perf record / 火焰图）</p>
+<p class="skill-line"><b>编程语言</b>：Python、Java、C、C++（熟悉语法与基础工程能力）</p>
+<p class="skill-line"><b>后端 / 系统</b>：Linux、Docker、epoll + muduo 网络编程（学习中）、数据库基础</p>
+<p class="skill-line"><b>语言能力</b>：CET-4（已通过）、CET-6（备考中）</p>
+
+</body>
+</html>

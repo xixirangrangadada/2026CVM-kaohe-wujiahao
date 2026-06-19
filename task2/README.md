@@ -62,11 +62,13 @@ docker run -d --privileged --pid=host \
   --name cpu-profiler cpu-profiler
 ```
 
-### 方式二：直接构建
+### 方式二：直接构建（零额外步骤，仓库已自带 FlameGraph）
+
+仓库内已内置 `task2/src/FlameGraph/`（`stackcollapse-perf.pl` + `flamegraph.pl`，~53KB），`docker build` 自动完成一切，**无需先 clone FlameGraph、无需任何前置准备**。Dockerfile 还带 git clone 兜底：若 build context 缺该目录，构建时自动从 GitHub 拉取。
 
 ```bash
 cd task2/src
-docker build -t cpu-profiler .
+docker build -t cpu-profiler .          # FlameGraph 已自带，一条命令成
 docker run -d --privileged --pid=host \
   -v /lib/modules:/lib/modules:ro -v /sys:/sys \
   -v /data:/data -p 8080:8080 \
@@ -76,6 +78,8 @@ docker run -d --privileged --pid=host \
 > **v2.0 → v2.1**：Release 上的 v2.0 镜像不含 preflight/metrics/events，需重新 `docker build`（或下载新 Release）才能用新功能。
 
 **运行参数**（必填）：`--privileged`（PMU 访问）/ `--pid=host`（采宿主机进程）/ `-v /lib/modules`（内核符号，否则栈 `[unknown]`）/ `-v /sys`（PMU 硬件）/ `-v /data`（持久化卷）。
+
+> **架构提示**：镜像基于 `openeuler:20.03`（aarch64），`perf` 与内核版本紧密耦合。在 **aarch64 Linux**（鲲鹏等）宿主机上可直接采到真实 PMU 数据与内核符号；在 **x86_64** 宿主机上容器能启动、前端（http://localhost:8080）和 HTTP API 可用，但 `perf record` 采集到的可能是 x86 内核符号、PMU 事件名不同，火焰图/指标结果仅作功能演示。完整验证请用 aarch64 Linux 环境（背景：本项目开发测试环境为鲲鹏 920 / TaiShan v110）。
 
 ---
 
